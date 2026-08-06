@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using StealthEye.Windows;
 
 namespace StealthEye.Runtime;
 
@@ -7,9 +8,11 @@ public sealed class ProcessRunner
 {
     public async Task<object> RunAsync(ProcessSpec spec, CancellationToken cancellationToken)
     {
+        if (spec.Interactive) throw new ArgumentException("Interactive processes must use process.start or terminal.open.");
         using var process = new Process { StartInfo = spec.ToStartInfo(), EnableRaisingEvents = true };
         var startedAt = DateTimeOffset.UtcNow;
         if (!process.Start()) throw new InvalidOperationException($"Failed to start '{spec.FileName}'.");
+        using var job = JobObject.TryAssign(process, out var jobError);
 
         if (spec.StandardInput is not null)
         {
@@ -61,6 +64,8 @@ public sealed class ProcessRunner
             duration_ms = (long)(endedAt - startedAt).TotalMilliseconds,
             context = spec.RequestedContext,
             effective_identity = GetIdentity(),
+            job_assigned = job is not null,
+            job_error = jobError,
         };
     }
 
@@ -73,9 +78,7 @@ public sealed class ProcessRunner
         var stdoutBudget = Math.Min(stdoutBytes.Length, maxBytes * 3 / 4);
         var stderrBudget = Math.Min(stderrBytes.Length, maxBytes - stdoutBudget);
         if (stdoutBudget + stderrBudget < maxBytes && stdoutBudget < stdoutBytes.Length)
-        {
             stdoutBudget = Math.Min(stdoutBytes.Length, maxBytes - stderrBudget);
-        }
 
         return (
             Encoding.UTF8.GetString(stdoutBytes.AsSpan(0, stdoutBudget)),

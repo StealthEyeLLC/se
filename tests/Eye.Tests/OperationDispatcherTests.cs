@@ -50,12 +50,58 @@ public sealed class OperationDispatcherTests
         var dispatcher = services.GetRequiredService<OperationDispatcher>();
         var response = await dispatcher.DispatchAsync(
             "run",
-            Args(new { shell = "powershell", command = "Write-Output EYE_RUN_OK" }),
+            Args(new { shell = "powershell", command = "Write-Output EYE_RUN_OK; Start-Sleep -Milliseconds 150" }),
             CancellationToken.None);
         Assert.True(response.Ok);
         using var result = JsonSerializer.SerializeToDocument(response.Result);
         Assert.Equal(0, result.RootElement.GetProperty("exit_code").GetInt32());
         Assert.Contains("EYE_RUN_OK", result.RootElement.GetProperty("stdout").GetString());
+        Assert.True(result.RootElement.GetProperty("job_assigned").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ConPtyTerminalAcceptsInputAndResize()
+    {
+        await using var services = BuildServices();
+        var dispatcher = services.GetRequiredService<OperationDispatcher>();
+        var started = await dispatcher.DispatchAsync(
+            "terminal.open",
+            Args(new { shell = "cmd", columns = 100, rows = 25 }),
+            TestContext.Current.CancellationToken);
+        Assert.True(started.Ok, JsonSerializer.Serialize(started.Error));
+        using var startedJson = JsonSerializer.SerializeToDocument(started.Result);
+        var handle = startedJson.RootElement.GetProperty("handle").GetString()!;
+        Assert.True(startedJson.RootElement.GetProperty("interactive").GetBoolean());
+        Assert.NotEqual("exited", startedJson.RootElement.GetProperty("state").GetString());
+        Assert.True(startedJson.RootElement.GetProperty("job_assigned").GetBoolean(), JsonSerializer.Serialize(started.Result));
+
+        var resized = await dispatcher.DispatchAsync(
+            "terminal.resize",
+            Args(new { handle, columns = 132, rows = 40 }),
+            TestContext.Current.CancellationToken);
+        Assert.True(resized.Ok, JsonSerializer.Serialize(resized.Error));
+
+        var written = await dispatcher.DispatchAsync(
+            "terminal.write",
+            Args(new { handle, text = "echo CONPTY_OK\r\nexit\r\n" }),
+            TestContext.Current.CancellationToken);
+        Assert.True(written.Ok, JsonSerializer.Serialize(written.Error));
+        await Task.Delay(1000, TestContext.Current.CancellationToken);
+
+        var read = await dispatcher.DispatchAsync(
+            "terminal.read",
+            Args(new { handle, stdout_offset = 0, stderr_offset = 0, max_bytes = 65536 }),
+            TestContext.Current.CancellationToken);
+        Assert.True(read.Ok, JsonSerializer.Serialize(read.Error));
+        using var readJson = JsonSerializer.SerializeToDocument(read.Result);
+        var terminalOutput = readJson.RootElement.GetProperty("stdout").GetString() ?? string.Empty;
+        Assert.True(terminalOutput.Contains("CONPTY_OK", StringComparison.Ordinal), JsonSerializer.Serialize(read.Result));
+
+        var removed = await dispatcher.DispatchAsync(
+            "terminal.remove",
+            Args(new { handle }),
+            TestContext.Current.CancellationToken);
+        Assert.True(removed.Ok, JsonSerializer.Serialize(removed.Error));
     }
 
     [Fact]

@@ -53,10 +53,19 @@ wsl.run
 process.start
 process.read
 process.write
+process.resize
 process.stat
 process.list
 process.stop
 process.remove
+terminal.open
+terminal.read
+terminal.write
+terminal.resize
+terminal.stat
+terminal.list
+terminal.stop
+terminal.remove
 file.read
 file.write
 file.list
@@ -99,6 +108,8 @@ proc_c_*   local CLI process
 ```
 
 `process.read` consumes stdout and stderr by byte offset. Service calls automatically route `proc_u_*` operations back to the session process. Output pumps are independent of the initiating request token, so capture continues after the starter request ends or disconnects.
+
+`terminal.open` creates a true Windows pseudoterminal through the pinned Microsoft Pty.Net backend. `terminal.write` sends UTF-8 input, `terminal.read` returns cursor-based output, and `terminal.resize` changes the ConPTY dimensions. Managed processes are assigned to native Windows Job Objects so complete process trees can be stopped and cleaned up.
 
 ## Files
 

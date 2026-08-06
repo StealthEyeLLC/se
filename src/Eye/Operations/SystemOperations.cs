@@ -12,7 +12,8 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
     [
         "capabilities", "system.info", "system.status", "system.doctor",
         "run", "wsl.run",
-        "process.start", "process.read", "process.write", "process.stat", "process.list", "process.stop", "process.remove",
+        "process.start", "process.read", "process.write", "process.resize", "process.stat", "process.list", "process.stop", "process.remove",
+        "terminal.open", "terminal.read", "terminal.write", "terminal.resize", "terminal.stat", "terminal.list", "terminal.stop", "terminal.remove",
         "file.read", "file.write", "file.list", "file.stat", "file.mkdir", "file.copy", "file.move", "file.remove", "file.hash",
         "session.info"
     ];
@@ -33,6 +34,9 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
             session_mode = runtime.IsSession,
             session_pipe = config.PipeName,
             process_handles = true,
+            pty_backend = "Pty.Net side-by-side ConPTY",
+            conpty = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763),
+            job_objects = true,
             concurrent_requests = true,
             desktop = "planned",
             browser = "planned",
@@ -140,5 +144,5 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
 
 public static class VersionInfo
 {
-    public const string Version = "0.1.0";
+    public const string Version = "0.2.0";
 }

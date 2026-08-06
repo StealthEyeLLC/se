@@ -5,6 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+    <PackageVersion Include="sch.pty.net" Version="0.3.36-pre" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
     <PackageVersion Include="xunit.v3" Version="3.1.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.0" />

@@ -8,14 +8,9 @@ Canonical docs, .NET solution, pinned dependencies, reproducible build, `eye --v
 
 Stateless Streamable HTTP, exactly one `eye` tool, stable envelope, capabilities and system information.
 
-## 2. Native execution — baseline implemented
+## 2. Native execution — implemented
 
-PowerShell, cmd, direct execution, WSL, environment/cwd/stdin/timeout, process handles, incremental output, and request-independent output capture.
-
-Still required before process control is complete:
-
-- ConPTY for true interactive terminals;
-- Windows Job Objects for process-tree lifetime and accounting.
+PowerShell, cmd, direct execution, WSL, environment/cwd/stdin/timeout, reconnectable process handles, incremental output, request-independent capture, native Windows Job Objects, and true ConPTY terminal sessions with input and resize.
 
 ## 3. Files and development — baseline implemented
 

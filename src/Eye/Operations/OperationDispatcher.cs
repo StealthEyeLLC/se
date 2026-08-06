@@ -34,12 +34,14 @@ public sealed class OperationDispatcher(
                 "run" => await runner.RunAsync(ProcessSpec.FromArgs(args), cancellationToken),
                 "wsl.run" => await runner.RunAsync(ProcessSpec.FromArgs(args, forceWsl: true), cancellationToken),
                 "process.start" => await processes.StartAsync(ProcessSpec.FromArgs(args), cancellationToken),
-                "process.read" => await ProcessReadAsync(args, cancellationToken),
-                "process.write" => await ProcessWriteAsync(args, cancellationToken),
-                "process.stat" => processes.Stat(new ArgReader(args).RequireString("handle")),
-                "process.list" => await ProcessListAsync(args, cancellationToken),
-                "process.stop" => await processes.StopAsync(new ArgReader(args).RequireString("handle"), cancellationToken),
-                "process.remove" => await processes.RemoveAsync(new ArgReader(args).RequireString("handle")),
+                "terminal.open" => await processes.StartAsync(ProcessSpec.FromArgs(args, forceInteractive: true), cancellationToken),
+                "process.read" or "terminal.read" => await ProcessReadAsync(args, cancellationToken),
+                "process.write" or "terminal.write" => await ProcessWriteAsync(args, cancellationToken),
+                "process.resize" or "terminal.resize" => ProcessResize(args),
+                "process.stat" or "terminal.stat" => processes.Stat(new ArgReader(args).RequireString("handle")),
+                "process.list" or "terminal.list" => await ProcessListAsync(args, cancellationToken),
+                "process.stop" or "terminal.stop" => await processes.StopAsync(new ArgReader(args).RequireString("handle"), cancellationToken),
+                "process.remove" or "terminal.remove" => await processes.RemoveAsync(new ArgReader(args).RequireString("handle")),
                 "file.read" => await files.ReadAsync(args, cancellationToken),
                 "file.write" => await files.WriteAsync(args, cancellationToken),
                 "file.list" => files.List(args),
@@ -74,7 +76,7 @@ public sealed class OperationDispatcher(
 
     private void ValidateRequestedContext(string op, IReadOnlyDictionary<string, JsonElement>? args)
     {
-        if (op is not ("run" or "wsl.run" or "process.start")) return;
+        if (op is not ("run" or "wsl.run" or "process.start" or "terminal.open")) return;
         var context = (new ArgReader(args).String("context", "current") ?? "current").ToLowerInvariant();
         if (context is not ("current" or "user" or "interactive" or "system"))
             throw new ArgumentException("'context' must be current, user, interactive, or system.");
@@ -89,13 +91,19 @@ public sealed class OperationDispatcher(
         if (op == "session.info") return true;
         if (op == "wsl.run")
             return !string.Equals(reader.String("context", "user"), "system", StringComparison.OrdinalIgnoreCase);
-        if (op is "run" or "process.start")
+        if (op is "run" or "process.start" or "terminal.open")
         {
             var context = reader.String("context", "current") ?? "current";
-            return context.Equals("user", StringComparison.OrdinalIgnoreCase)
-                || context.Equals("interactive", StringComparison.OrdinalIgnoreCase);
+            if (context.Equals("user", StringComparison.OrdinalIgnoreCase)
+                || context.Equals("interactive", StringComparison.OrdinalIgnoreCase)) return true;
+            if (op == "terminal.open" && !context.Equals("system", StringComparison.OrdinalIgnoreCase)) return true;
+            if (op == "process.start" && reader.Boolean("interactive")
+                && context.Equals("current", StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
         }
-        if (op is "process.read" or "process.write" or "process.stat" or "process.stop" or "process.remove")
+        if (op is "process.read" or "terminal.read" or "process.write" or "terminal.write"
+            or "process.resize" or "terminal.resize" or "process.stat" or "terminal.stat"
+            or "process.stop" or "terminal.stop" or "process.remove" or "terminal.remove")
             return (reader.String("handle") ?? string.Empty).StartsWith("proc_u_", StringComparison.Ordinal);
         return false;
     }
@@ -135,6 +143,15 @@ public sealed class OperationDispatcher(
             reader.String("text", string.Empty) ?? string.Empty,
             reader.Boolean("close"),
             cancellationToken);
+    }
+
+    private object ProcessResize(IReadOnlyDictionary<string, JsonElement>? args)
+    {
+        var reader = new ArgReader(args);
+        return processes.Resize(
+            reader.RequireString("handle"),
+            (short)Math.Clamp(reader.Int32("columns", 120), 20, 500),
+            (short)Math.Clamp(reader.Int32("rows", 30), 5, 200));
     }
 
     private async Task<object> ProcessListAsync(

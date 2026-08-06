@@ -62,7 +62,7 @@ MCP requests are independently asynchronous. There is no global execution lock. 
 
 ## Process architecture
 
-The baseline uses redirected process streams with output persisted to bounded runtime files and cursor-based reads. Production expansion adds ConPTY for true interactive terminals and Windows Job Objects for process-tree lifetime control.
+Bounded commands use redirected native streams. Long commands and terminals persist output to cursor-readable runtime files. Interactive sessions use the pinned Microsoft Pty.Net backend with its side-by-side ConPTY runtime, while Windows Job Objects own full process trees and terminate descendants when their handle is released.
 
 ## Desktop architecture
 

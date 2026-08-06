@@ -12,11 +12,18 @@ public sealed record ProcessSpec(
     string? StandardInput,
     int TimeoutMs,
     int MaxOutputBytes,
-    string RequestedContext)
+    string RequestedContext,
+    bool Interactive,
+    short Columns,
+    short Rows)
 {
-    public static ProcessSpec FromArgs(IReadOnlyDictionary<string, JsonElement>? args, bool forceWsl = false)
+    public static ProcessSpec FromArgs(
+        IReadOnlyDictionary<string, JsonElement>? args,
+        bool forceWsl = false,
+        bool forceInteractive = false)
     {
         var reader = new ArgReader(args);
+        var interactive = forceInteractive || reader.Boolean("interactive");
         var shell = forceWsl ? "wsl" : (reader.String("shell", "direct") ?? "direct").ToLowerInvariant();
         var command = reader.String("command");
         var executable = reader.String("executable");
@@ -28,25 +35,35 @@ public sealed record ProcessSpec(
         {
             case "powershell":
             case "windows-powershell":
-                if (string.IsNullOrWhiteSpace(command)) throw new ArgumentException("'command' is required for PowerShell execution.");
                 fileName = "powershell.exe";
-                finalArgs = ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command];
+                var powershellArgs = new List<string> { "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass" };
+                if (!interactive) powershellArgs.Add("-NonInteractive");
+                if (!string.IsNullOrWhiteSpace(command)) powershellArgs.AddRange(["-Command", command]);
+                else if (!interactive) throw new ArgumentException("'command' is required for noninteractive PowerShell execution.");
+                finalArgs = powershellArgs;
+                break;
+            case "pwsh":
+                fileName = "pwsh.exe";
+                var pwshArgs = new List<string> { "-NoLogo", "-NoProfile" };
+                if (!interactive) pwshArgs.Add("-NonInteractive");
+                if (!string.IsNullOrWhiteSpace(command)) pwshArgs.AddRange(["-Command", command]);
+                else if (!interactive) throw new ArgumentException("'command' is required for noninteractive pwsh execution.");
+                finalArgs = pwshArgs;
                 break;
             case "cmd":
-                if (string.IsNullOrWhiteSpace(command)) throw new ArgumentException("'command' is required for cmd execution.");
                 fileName = "cmd.exe";
-                finalArgs = ["/d", "/s", "/c", command];
+                if (!string.IsNullOrWhiteSpace(command)) finalArgs = ["/d", "/s", "/c", command];
+                else if (interactive) finalArgs = ["/d", "/q"];
+                else throw new ArgumentException("'command' is required for noninteractive cmd execution.");
                 break;
             case "wsl":
-                if (string.IsNullOrWhiteSpace(command)) throw new ArgumentException("'command' is required for WSL execution.");
                 fileName = "wsl.exe";
                 var distro = reader.String("distribution");
                 var wslArgs = new List<string>();
-                if (!string.IsNullOrWhiteSpace(distro))
-                {
-                    wslArgs.AddRange(["--distribution", distro]);
-                }
-                wslArgs.AddRange(["--", "bash", "-lc", command]);
+                if (!string.IsNullOrWhiteSpace(distro)) wslArgs.AddRange(["--distribution", distro]);
+                if (!string.IsNullOrWhiteSpace(command)) wslArgs.AddRange(["--", "bash", "-lc", command]);
+                else if (interactive) wslArgs.AddRange(["--", "bash", "-l"]);
+                else throw new ArgumentException("'command' is required for noninteractive WSL execution.");
                 finalArgs = wslArgs;
                 break;
             case "direct":
@@ -54,7 +71,7 @@ public sealed record ProcessSpec(
                 finalArgs = arguments;
                 break;
             default:
-                throw new ArgumentException($"Unsupported shell '{shell}'. Expected direct, powershell, cmd, or wsl.");
+                throw new ArgumentException($"Unsupported shell '{shell}'. Expected direct, powershell, pwsh, cmd, or wsl.");
         }
 
         return new ProcessSpec(
@@ -65,7 +82,10 @@ public sealed record ProcessSpec(
             reader.String("stdin"),
             Math.Max(0, reader.Int32("timeout_ms", 0)),
             Math.Clamp(reader.Int32("max_output_bytes", 1024 * 1024), 1024, 64 * 1024 * 1024),
-            reader.String("context", "current") ?? "current");
+            reader.String("context", "current") ?? "current",
+            interactive,
+            (short)Math.Clamp(reader.Int32("columns", 120), 20, 500),
+            (short)Math.Clamp(reader.Int32("rows", 30), 5, 200));
     }
 
     public ProcessStartInfo ToStartInfo(bool redirectInput = true)

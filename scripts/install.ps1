@@ -15,7 +15,11 @@ $userProcesses = Join-Path $userData 'run\processes'
 $configPath = Join-Path $data 'config.json'
 $serviceName = 'StealthEye'
 $taskName = 'StealthEye Session'
-$owner = "$env:USERDOMAIN\$env:USERNAME"
+$currentIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+$owner = $currentIdentity.Name
+$ownerSid = $currentIdentity.User
+$systemSid = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')
+$administratorsSid = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
 $eye = Join-Path $install 'eye.exe'
 
 New-Item -ItemType Directory -Force -Path $install, $data, (Join-Path $data 'run'), (Join-Path $data 'logs'), $systemProcesses, $userProcesses | Out-Null
@@ -41,9 +45,9 @@ if (-not (Test-Path $configPath)) {
 
 $configAcl = New-Object System.Security.AccessControl.FileSecurity
 $configAcl.SetAccessRuleProtection($true, $false)
-$configAcl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule('NT AUTHORITY\SYSTEM', 'FullControl', 'Allow')))
-$configAcl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule('BUILTIN\Administrators', 'FullControl', 'Allow')))
-$configAcl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($owner, 'ReadAndExecute', 'Allow')))
+$configAcl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($systemSid, [System.Security.AccessControl.FileSystemRights]::FullControl, [System.Security.AccessControl.AccessControlType]::Allow))
+$configAcl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($administratorsSid, [System.Security.AccessControl.FileSystemRights]::FullControl, [System.Security.AccessControl.AccessControlType]::Allow))
+$configAcl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($ownerSid, [System.Security.AccessControl.FileSystemRights]::ReadAndExecute, [System.Security.AccessControl.AccessControlType]::Allow))
 Set-Acl -LiteralPath $configPath -AclObject $configAcl
 
 Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
@@ -61,8 +65,7 @@ if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
 }
 
 $binary = '"' + $eye + '" serve'
-& sc.exe create $serviceName binPath= $binary start= auto obj= LocalSystem DisplayName= 'StealthEye' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "sc.exe create failed with exit code $LASTEXITCODE" }
+New-Service -Name $serviceName -BinaryPathName $binary -StartupType Automatic -DisplayName 'StealthEye' | Out-Null
 & sc.exe description $serviceName 'StealthEye laptop-native MCP server' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "sc.exe description failed with exit code $LASTEXITCODE" }
 & sc.exe failure $serviceName reset= 86400 actions= restart/5000/restart/15000/restart/60000 | Out-Null
