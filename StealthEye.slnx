@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Eye/Eye.csproj" />
+  <Project Path="tests/Eye.Tests/Eye.Tests.csproj" />
+</Solution>
