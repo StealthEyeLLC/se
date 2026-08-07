@@ -22,7 +22,7 @@ public sealed class VisionUiContractTests
         Assert.Contains("screen.capture", json);
         Assert.Contains("ui.find", json);
         Assert.Contains("ui.invoke", json);
-        Assert.Contains("0.4.0", json);
+        Assert.Contains("0.5.0", json);
     }
 
     [Fact]

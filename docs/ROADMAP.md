@@ -16,9 +16,9 @@ PowerShell, cmd, direct execution, WSL, environment/cwd/stdin/timeout, reconnect
 
 Chunked binary file operations and ordinary directory/file operations are implemented. Native Git, build tools, downloads, installation, Docker, and artifacts remain available through raw execution and can gain structured operations only where they add real capability.
 
-## 4. Authority split — implemented in code
+## 4. Authority split — implemented and installed
 
-LocalSystem service mode, elevated interactive-session mode, asynchronous named-pipe forwarding, execution contexts, and routed process-handle ownership are implemented and covered by integration tests. The installer is ready for the first permitted elevated installation run.
+LocalSystem service mode, elevated interactive-session mode, asynchronous named-pipe forwarding, execution contexts, and routed process-handle ownership are implemented, tested, installed, and runtime-proven on the laptop.
 
 ## 5. Direct ChatGPT connection
 
@@ -28,7 +28,7 @@ Install the pinned official tunnel client, register the custom ChatGPT app, expo
 
 Remove HEC/VPS from the normal path only after direct phone access works.
 
-## 7. Desktop and browser — desktop control and semantic baseline implemented
+## 7. Desktop and browser — baseline implemented
 
 Implemented:
 
@@ -42,11 +42,14 @@ Implemented:
 - direct UI Automation 3 element discovery and common semantic control patterns;
 - stateless UI selectors with no global element registry;
 - mandatory service-to-owner-session routing for all desktop/capture/UIA operations.
+- persistent Chromium profiles launched with loopback CDP and controlled through Playwright;
+- reconnect across separate `eye.exe` invocations using on-disk profile/CDP state;
+- tabs, navigation, click/fill/key input, waits, uploads, downloads, text/HTML snapshots, JavaScript evaluation, and raw CDP;
+- browser screenshots returned as MCP image content through the installed service/session path.
 
 Still required:
 
-- Windows Graphics Capture / DXGI backend for sustained capture, recording, and hardware-composed cases;
-- persistent browser profiles, Playwright, CDP, downloads, and uploads.
+- Windows Graphics Capture / DXGI backend for sustained capture, recording, and hardware-composed cases.
 
 ## 8. Unity and Unreal
 

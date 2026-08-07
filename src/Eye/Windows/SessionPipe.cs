@@ -52,7 +52,8 @@ public sealed class SessionPipeServer(string pipeName, OperationDispatcher dispa
             {
                 response = EyeEnvelope.Failure(ex.Message, "session_request_failed");
             }
-            await writer.WriteLineAsync(JsonSerializer.Serialize(response, EyeJson.Compact));
+            var pipeResponse = SessionPipeResponse.Create(response);
+            await writer.WriteLineAsync(JsonSerializer.Serialize(pipeResponse, EyeJson.Compact));
         }
     }
 }
@@ -74,13 +75,61 @@ public sealed class SessionPipeClient(string pipeName)
         await writer.WriteLineAsync(JsonSerializer.Serialize(new SessionRequest(op, args), EyeJson.Compact));
         var line = await reader.ReadLineAsync(linked.Token);
         if (string.IsNullOrWhiteSpace(line)) throw new IOException("Session process returned no response.");
-        return JsonSerializer.Deserialize<EyeEnvelope>(line, EyeJson.Compact) ?? EyeEnvelope.Failure("Invalid session response.");
+        var response = JsonSerializer.Deserialize<SessionPipeResponse>(line, EyeJson.Compact)
+            ?? throw new IOException("Invalid session response.");
+        return response.Rehydrate();
     }
 }
 
 public sealed record SessionRequest(
     string Op,
     IReadOnlyDictionary<string, JsonElement>? Args);
+
+internal sealed record SessionPipeResponse(EyeEnvelope Envelope, string? ImageBase64 = null)
+{
+    public static SessionPipeResponse Create(EyeEnvelope envelope) =>
+        envelope.Ok && envelope.Result is ScreenCaptureResult capture
+            ? new SessionPipeResponse(envelope, Convert.ToBase64String(capture.ImageBytes))
+            : new SessionPipeResponse(envelope);
+
+    public EyeEnvelope Rehydrate()
+    {
+        if (string.IsNullOrWhiteSpace(ImageBase64)) return Envelope;
+        if (!Envelope.Ok || Envelope.Result is not JsonElement element)
+            throw new IOException("Session image response is missing capture metadata.");
+
+        var metadata = element.Deserialize<SessionCaptureMetadata>(EyeJson.Compact)
+            ?? throw new IOException("Session image response metadata is invalid.");
+        var bytes = Convert.FromBase64String(ImageBase64);
+        var capture = new ScreenCaptureResult(
+            bytes,
+            metadata.MimeType,
+            metadata.Width,
+            metadata.Height,
+            metadata.Target,
+            metadata.Backend,
+            metadata.SourceX,
+            metadata.SourceY,
+            metadata.SourceWidth,
+            metadata.SourceHeight,
+            metadata.SavedPath,
+            metadata.Sha256);
+        return Envelope with { Result = capture };
+    }
+}
+
+internal sealed record SessionCaptureMetadata(
+    string MimeType,
+    int Width,
+    int Height,
+    string Target,
+    string Backend,
+    int SourceX,
+    int SourceY,
+    int SourceWidth,
+    int SourceHeight,
+    string? SavedPath,
+    string Sha256);
 
 public static class SessionIdentity
 {

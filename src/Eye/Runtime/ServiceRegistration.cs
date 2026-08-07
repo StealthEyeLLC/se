@@ -21,6 +21,7 @@ public static class ServiceRegistration
         services.AddSingleton<DesktopOperations>();
         services.AddSingleton<ScreenCaptureOperations>();
         services.AddSingleton<UiAutomationOperations>();
+        services.AddSingleton<BrowserOperations>();
         services.AddSingleton<OperationDispatcher>();
         return services;
     }

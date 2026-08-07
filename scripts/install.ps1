@@ -23,7 +23,6 @@ $administratorsSid = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-
 $eye = Join-Path $install 'eye.exe'
 
 New-Item -ItemType Directory -Force -Path $install, $data, (Join-Path $data 'run'), (Join-Path $data 'logs'), $systemProcesses, $userProcesses | Out-Null
-Copy-Item (Join-Path $source '*') $install -Recurse -Force
 
 if (-not (Test-Path $configPath)) {
     $tokenBytes = New-Object byte[] 32
@@ -63,6 +62,23 @@ if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
         throw "Existing $serviceName service is still pending deletion."
     }
 }
+
+$installPrefix = $install.TrimEnd('\') + '\'
+Get-Process -ErrorAction SilentlyContinue | Where-Object {
+    try { $_.Path -like ($installPrefix + '*') } catch { $false }
+} | Stop-Process -Force -ErrorAction SilentlyContinue
+for ($i = 0; $i -lt 40; $i++) {
+    $locked = Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        try { $_.Path -like ($installPrefix + '*') } catch { $false }
+    }
+    if (-not $locked) { break }
+    Start-Sleep -Milliseconds 250
+}
+if (Get-Process -ErrorAction SilentlyContinue | Where-Object { try { $_.Path -like ($installPrefix + '*') } catch { $false } }) {
+    throw "Existing StealthEye processes are still holding files under $install."
+}
+
+Copy-Item (Join-Path $source '*') $install -Recurse -Force
 
 $binary = '"' + $eye + '" serve'
 New-Service -Name $serviceName -BinaryPathName $binary -StartupType Automatic -DisplayName 'StealthEye' | Out-Null

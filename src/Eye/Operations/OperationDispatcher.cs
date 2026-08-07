@@ -13,6 +13,7 @@ public sealed class OperationDispatcher(
     DesktopOperations desktop,
     ScreenCaptureOperations screen,
     UiAutomationOperations ui,
+    BrowserOperations browser,
     EyeConfig config,
     EyeRuntimeContext runtime)
 {
@@ -80,6 +81,23 @@ public sealed class OperationDispatcher(
                 "ui.select" => ui.Select(args),
                 "ui.expand" => ui.Expand(args),
                 "ui.scroll_into_view" => ui.ScrollIntoView(args),
+                "browser.start" => await browser.StartAsync(args, cancellationToken),
+                "browser.list" => await browser.ListAsync(cancellationToken),
+                "browser.stop" => await browser.StopAsync(args, cancellationToken),
+                "browser.tabs" => await browser.TabsAsync(args, cancellationToken),
+                "browser.tab.open" => await browser.NewTabAsync(args, cancellationToken),
+                "browser.tab.close" => await browser.CloseTabAsync(args, cancellationToken),
+                "browser.navigate" => await browser.NavigateAsync(args, cancellationToken),
+                "browser.click" => await browser.ClickAsync(args, cancellationToken),
+                "browser.fill" => await browser.FillAsync(args, cancellationToken),
+                "browser.press" => await browser.PressAsync(args, cancellationToken),
+                "browser.snapshot" => await browser.SnapshotAsync(args, cancellationToken),
+                "browser.evaluate" => await browser.EvaluateAsync(args, cancellationToken),
+                "browser.wait" => await browser.WaitAsync(args, cancellationToken),
+                "browser.upload" => await browser.UploadAsync(args, cancellationToken),
+                "browser.download" => await browser.DownloadAsync(args, cancellationToken),
+                "browser.screenshot" => await browser.ScreenshotAsync(args, cancellationToken),
+                "browser.cdp" => await browser.CdpAsync(args, cancellationToken),
                 "session.info" => await SessionInfoAsync(args, cancellationToken),
                 _ => throw new NotSupportedException($"Unsupported operation '{op}'. Call capabilities for the current operation list."),
             };
@@ -145,7 +163,8 @@ public sealed class OperationDispatcher(
         || op.StartsWith("keyboard.", StringComparison.Ordinal)
         || op.StartsWith("clipboard.", StringComparison.Ordinal)
         || op.StartsWith("screen.", StringComparison.Ordinal)
-        || op.StartsWith("ui.", StringComparison.Ordinal);
+        || op.StartsWith("ui.", StringComparison.Ordinal)
+        || op.StartsWith("browser.", StringComparison.Ordinal);
 
     private async Task<EyeEnvelope> ForwardToSessionAsync(
         string op,

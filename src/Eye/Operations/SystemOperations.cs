@@ -19,6 +19,9 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
         "pointer.position", "pointer.move", "pointer.click", "pointer.scroll", "keyboard.type", "keyboard.key", "clipboard.read", "clipboard.write",
         "screen.capture",
         "ui.find", "ui.focused", "ui.from_point", "ui.focus", "ui.invoke", "ui.value", "ui.toggle", "ui.select", "ui.expand", "ui.scroll_into_view",
+        "browser.start", "browser.list", "browser.stop", "browser.tabs", "browser.tab.open", "browser.tab.close",
+        "browser.navigate", "browser.click", "browser.fill", "browser.press", "browser.snapshot", "browser.evaluate", "browser.wait",
+        "browser.upload", "browser.download", "browser.screenshot", "browser.cdp",
         "session.info"
     ];
 
@@ -43,7 +46,7 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
             job_objects = true,
             concurrent_requests = true,
             desktop = "native_win32+capture+uia3",
-            browser = "planned",
+            browser = "persistent_chromium_cdp+playwright",
             unity = "planned",
             unreal = "planned",
             models = "planned",
@@ -148,5 +151,5 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
 
 public static class VersionInfo
 {
-    public const string Version = "0.4.0";
+    public const string Version = "0.5.0";
 }

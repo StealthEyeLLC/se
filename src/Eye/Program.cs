@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Text.Json;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using ModelContextProtocol.Server;
 using StealthEye.Configuration;
@@ -103,6 +104,7 @@ Examples:
 
     private static async Task<int> RunSessionAsync()
     {
+        HideSessionConsoleWindow();
         var config = EyeConfig.Load();
         Console.WriteLine($"StealthEye session helper listening on pipe '{config.PipeName}'.");
         await using var services = new ServiceCollection()
@@ -174,4 +176,19 @@ Examples:
             return await File.ReadAllTextAsync(Path.GetFullPath(args[1][1..]));
         return args[1];
     }
+
+    private static void HideSessionConsoleWindow()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var window = GetConsoleWindow();
+        if (window != 0) _ = ShowWindow(window, 0);
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern nint GetConsoleWindow();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(nint hWnd, int nCmdShow);
+
 }
