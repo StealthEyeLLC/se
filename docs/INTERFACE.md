@@ -90,6 +90,17 @@ keyboard.type
 keyboard.key
 clipboard.read
 clipboard.write
+screen.capture
+ui.find
+ui.focused
+ui.from_point
+ui.focus
+ui.invoke
+ui.value
+ui.toggle
+ui.select
+ui.expand
+ui.scroll_into_view
 session.info
 ```
 
@@ -138,6 +149,48 @@ All `desktop.*`, `display.*`, `window.*`, `pointer.*`, `keyboard.*`, and `clipbo
 `pointer.move`, `pointer.click`, `pointer.scroll`, `keyboard.type`, and `keyboard.key` use Win32 `SendInput` or the direct cursor API. Physical input writes are serialized only at the shared device boundary; unrelated MCP operations remain concurrent.
 
 `clipboard.read` and `clipboard.write` use native Unicode clipboard data. Clipboard writes share the input serialization boundary because the clipboard is a single interactive-session resource.
+
+## Screen capture
+
+`screen.capture` supports:
+
+- `target: desktop` for the virtual desktop;
+- `target: region` with `x`, `y`, `width`, and `height`;
+- `target: window` with the normal window selectors such as `handle`, `process_id`, or `title_contains`;
+- PNG or JPEG output;
+- JPEG quality;
+- `max_width` / `max_height` downscaling;
+- optional `save: true` or an explicit `path`;
+- optional extended-frame capture for windows.
+
+The structured result reports dimensions, source bounds, encoding, byte count, SHA-256, backend, and any saved path. Raw image bytes are not duplicated into structured JSON. Through MCP, the same `eye` call also returns an `ImageContentBlock`, so ChatGPT receives the screenshot as image content rather than base64 text. Local CLI callers can request `save` or `path` when they need an image file.
+
+The current snapshot backend uses GDI+ screen copy and `PrintWindow` with screen-copy fallback. Windows Graphics Capture / DXGI remains a future high-performance backend for continuous capture and hardware-composed cases.
+
+## UI Automation
+
+`ui.find` discovers UI Automation 3 elements. Selectors may include:
+
+- `root_handle`, `root_process_id`, or `root_title_contains`;
+- `scope`: `element`, `children`, `descendants`, or `subtree`;
+- `name`, `automation_id`, `class_name`, `control_type`, `process_id`, `native_handle`, or `runtime_id`;
+- `exact`, `index`, and `max_entries`.
+
+Without an element selector, discovery defaults to direct children. Targeted searches default to subtree scope. Elements are resolved per operation; there is no global UI-element handle table.
+
+Read and action operations are:
+
+- `ui.focused` — describe the focused semantic element;
+- `ui.from_point` — resolve an element from desktop coordinates;
+- `ui.focus` — call the element's native UIA focus action;
+- `ui.invoke` — invoke controls supporting InvokePattern;
+- `ui.value` — read ValuePattern or set it when `value` is supplied;
+- `ui.toggle` — toggle controls supporting TogglePattern;
+- `ui.select` — select/add/remove SelectionItemPattern elements;
+- `ui.expand` — expand or collapse ExpandCollapsePattern elements;
+- `ui.scroll_into_view` — use ScrollItemPattern.
+
+When an application does not expose useful UI Automation semantics, StealthEye falls back to window state, screenshots, and raw input instead of inventing a fake semantic layer.
 
 ## Files
 

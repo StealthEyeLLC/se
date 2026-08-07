@@ -66,13 +66,19 @@ Bounded commands use redirected native streams. Long commands and terminals pers
 
 ## Desktop architecture
 
-The current desktop baseline runs only in the elevated owner-session process. It uses direct Win32 APIs for monitor/window state, foreground activation, geometry, show state, pointer input, keyboard input, and Unicode clipboard access. The LocalSystem service routes all desktop vocabulary through the named pipe instead of operating against session 0.
+Desktop operations run only in the elevated owner-session process. The LocalSystem service routes desktop, capture, and UI Automation vocabulary through the named pipe instead of pretending that session 0 is the user's desktop.
 
-Desktop expansion uses, in order:
+The implemented stack is layered:
 
-1. Windows UI Automation for semantic controls;
-2. Windows Graphics Capture or DXGI Desktop Duplication for visual state;
-3. the implemented native input APIs for raw pointer and keyboard fallback.
+1. UI Automation 3 through the thin COM interop binding for semantic element discovery and supported control patterns;
+2. GDI+/`PrintWindow` snapshot capture for desktop regions and application windows;
+3. direct Win32 window, pointer, keyboard, and Unicode clipboard APIs as the raw fallback.
+
+`screen.capture` returns ordinary structured metadata and, when called through MCP, an `ImageContentBlock` containing the actual PNG or JPEG bytes. The public tool remains `eye`; image content does not create a second tool or interface.
+
+UI Automation selectors are resolved per call from window roots, points, properties, and runtime IDs. StealthEye does not keep an in-memory element registry that would serialize unrelated work or strand handles across process restarts. Unfiltered UI discovery defaults to direct children; targeted selectors may search subtrees.
+
+Windows Graphics Capture / DXGI Desktop Duplication remains a useful later backend for sustained capture, hardware-composed surfaces, and screen recording. It is an upgrade path, not a replacement for the working snapshot path.
 
 ## Browser architecture
 

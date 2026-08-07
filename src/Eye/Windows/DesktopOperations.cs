@@ -83,7 +83,7 @@ public sealed class DesktopOperations
 
     public object ActivateWindow(IReadOnlyDictionary<string, JsonElement>? args)
     {
-        var handle = ResolveWindow(args);
+        var handle = ResolveWindowHandle(args);
         if (NativeMethods.IsIconic(handle)) _ = NativeMethods.ShowWindowAsync(handle, NativeMethods.SwRestore);
 
         var foreground = NativeMethods.GetForegroundWindow();
@@ -116,7 +116,7 @@ public sealed class DesktopOperations
     public object MoveWindow(IReadOnlyDictionary<string, JsonElement>? args)
     {
         var reader = new ArgReader(args);
-        var handle = ResolveWindow(args);
+        var handle = ResolveWindowHandle(args);
         if (!NativeMethods.GetWindowRect(handle, out var rect)) ThrowLastWin32("GetWindowRect");
         var x = reader.Has("x") ? reader.Int32("x") : rect.Left;
         var y = reader.Has("y") ? reader.Int32("y") : rect.Top;
@@ -136,7 +136,7 @@ public sealed class DesktopOperations
     public object ShowWindow(IReadOnlyDictionary<string, JsonElement>? args)
     {
         var reader = new ArgReader(args);
-        var handle = ResolveWindow(args);
+        var handle = ResolveWindowHandle(args);
         var state = (reader.String("state", "restore") ?? "restore").ToLowerInvariant();
         var command = state switch
         {
@@ -440,7 +440,7 @@ public sealed class DesktopOperations
         };
     }
 
-    private static IntPtr ResolveWindow(IReadOnlyDictionary<string, JsonElement>? args)
+    internal static IntPtr ResolveWindowHandle(IReadOnlyDictionary<string, JsonElement>? args)
     {
         var reader = new ArgReader(args);
         var handleText = reader.String("handle");

@@ -7,11 +7,12 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <PublishSingleFile>true</PublishSingleFile>
+    <PublishSelfContained>true</PublishSelfContained>
     <PublishReadyToRun>true</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
     <PublishIISAssets>false</PublishIISAssets>
     <DebugType>embedded</DebugType>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -20,11 +21,14 @@
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
     <PackageReference Include="sch.pty.net" />
+    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="Interop.UIAutomationClient" />
   </ItemGroup>
   <ItemGroup>
     <PtyNative Include="$(NuGetPackageRoot)sch.pty.net\0.3.36-pre\build\x64\os64\**\*" />
     <None Include="@(PtyNative)" Link="os64\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="..\..\licenses\Pty.Net-LICENSE.txt" Link="licenses\Pty.Net-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\licenses\UIAutomation-Interop-LICENSE.txt" Link="licenses\UIAutomation-Interop-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="RemoveUnusedIisNativeAsset" AfterTargets="Publish">
     <Delete Files="$(PublishDir)aspnetcorev2_inprocess.dll" />

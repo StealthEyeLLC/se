@@ -11,6 +11,8 @@ public sealed class OperationDispatcher(
     ProcessRunner runner,
     ProcessRegistry processes,
     DesktopOperations desktop,
+    ScreenCaptureOperations screen,
+    UiAutomationOperations ui,
     EyeConfig config,
     EyeRuntimeContext runtime)
 {
@@ -67,6 +69,17 @@ public sealed class OperationDispatcher(
                 "keyboard.key" => await desktop.SendKeysAsync(args, cancellationToken),
                 "clipboard.read" => desktop.ReadClipboard(),
                 "clipboard.write" => await desktop.WriteClipboardAsync(args, cancellationToken),
+                "screen.capture" => screen.Capture(args),
+                "ui.find" => ui.Find(args),
+                "ui.focused" => ui.Focused(),
+                "ui.from_point" => ui.FromPoint(args),
+                "ui.focus" => ui.Focus(args),
+                "ui.invoke" => ui.Invoke(args),
+                "ui.value" => ui.Value(args),
+                "ui.toggle" => ui.Toggle(args),
+                "ui.select" => ui.Select(args),
+                "ui.expand" => ui.Expand(args),
+                "ui.scroll_into_view" => ui.ScrollIntoView(args),
                 "session.info" => await SessionInfoAsync(args, cancellationToken),
                 _ => throw new NotSupportedException($"Unsupported operation '{op}'. Call capabilities for the current operation list."),
             };
@@ -130,7 +143,9 @@ public sealed class OperationDispatcher(
         || op.StartsWith("window.", StringComparison.Ordinal)
         || op.StartsWith("pointer.", StringComparison.Ordinal)
         || op.StartsWith("keyboard.", StringComparison.Ordinal)
-        || op.StartsWith("clipboard.", StringComparison.Ordinal);
+        || op.StartsWith("clipboard.", StringComparison.Ordinal)
+        || op.StartsWith("screen.", StringComparison.Ordinal)
+        || op.StartsWith("ui.", StringComparison.Ordinal);
 
     private async Task<EyeEnvelope> ForwardToSessionAsync(
         string op,

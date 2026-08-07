@@ -17,6 +17,8 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
         "file.read", "file.write", "file.list", "file.stat", "file.mkdir", "file.copy", "file.move", "file.remove", "file.hash",
         "desktop.info", "display.list", "window.list", "window.foreground", "window.activate", "window.move", "window.show",
         "pointer.position", "pointer.move", "pointer.click", "pointer.scroll", "keyboard.type", "keyboard.key", "clipboard.read", "clipboard.write",
+        "screen.capture",
+        "ui.find", "ui.focused", "ui.from_point", "ui.focus", "ui.invoke", "ui.value", "ui.toggle", "ui.select", "ui.expand", "ui.scroll_into_view",
         "session.info"
     ];
 
@@ -40,7 +42,7 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
             conpty = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763),
             job_objects = true,
             concurrent_requests = true,
-            desktop = "native_win32",
+            desktop = "native_win32+capture+uia3",
             browser = "planned",
             unity = "planned",
             unreal = "planned",
@@ -146,5 +148,5 @@ public sealed class SystemOperations(EyeConfig config, EyeRuntimeContext runtime
 
 public static class VersionInfo
 {
-    public const string Version = "0.3.0";
+    public const string Version = "0.4.0";
 }

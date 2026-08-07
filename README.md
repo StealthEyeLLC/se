@@ -17,7 +17,7 @@ ChatGPT -> one custom app -> one tool: eye -> Secure MCP Tunnel -> eye.exe -> Wi
 
 ## Current build
 
-StealthEye `0.3.0` implements:
+StealthEye `0.4.0` implements:
 
 - the `eye` CLI and Streamable HTTP MCP server;
 - exactly one MCP tool named `eye` with stable `{op,args}` input;
@@ -35,11 +35,15 @@ StealthEye `0.3.0` implements:
 - foreground activation, window movement, sizing, minimization, maximization, restoration, and hiding;
 - serialized Win32 pointer, keyboard, and Unicode clipboard operations in the owner session;
 - automatic service-to-session routing for all desktop operations;
+- PNG/JPEG desktop, region, and window screenshots with optional scaling and file persistence;
+- real MCP image content blocks for screenshots alongside the stable structured `{ok,result}` envelope;
+- direct UI Automation 3 discovery, focus, invoke, value, toggle, selection, expand/collapse, and scroll-into-view operations;
+- stateless semantic UI selectors instead of an in-memory element-handle registry;
 - one executable in service, interactive-session, and local CLI modes;
 - a PowerShell 5.1-compatible installer for the LocalSystem service and elevated logon task;
 - behavioral tests for files, native execution, durable output capture, and service/session routing.
 
-Screenshots, UI Automation, browser automation, Unity, Unreal, the Secure MCP Tunnel, and model operations follow behind the same public tool.
+Browser automation, higher-performance Windows Graphics Capture/DXGI capture, Unity, Unreal, the Secure MCP Tunnel, and model operations follow behind the same public tool.
 
 ## Development
 
@@ -51,6 +55,8 @@ Screenshots, UI Automation, browser automation, Unity, Unreal, the Secure MCP Tu
 ./artifacts/publish/eye.exe call terminal.open --args-file .\terminal.json
 ./artifacts/publish/eye.exe call display.list
 ./artifacts/publish/eye.exe call window.list --args-file .\windows.json
+./artifacts/publish/eye.exe call screen.capture --args-file .\capture.json
+./artifacts/publish/eye.exe call ui.find --args-file .\ui.json
 ./artifacts/publish/eye.exe serve
 ```
 

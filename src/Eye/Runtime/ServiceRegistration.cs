@@ -19,6 +19,8 @@ public static class ServiceRegistration
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<ProcessRegistry>();
         services.AddSingleton<DesktopOperations>();
+        services.AddSingleton<ScreenCaptureOperations>();
+        services.AddSingleton<UiAutomationOperations>();
         services.AddSingleton<OperationDispatcher>();
         return services;
     }
