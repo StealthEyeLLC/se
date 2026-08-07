@@ -10,6 +10,7 @@ public sealed class OperationDispatcher(
     FileOperations files,
     ProcessRunner runner,
     ProcessRegistry processes,
+    DesktopOperations desktop,
     EyeConfig config,
     EyeRuntimeContext runtime)
 {
@@ -51,6 +52,21 @@ public sealed class OperationDispatcher(
                 "file.move" => files.Move(args),
                 "file.remove" => files.Remove(args),
                 "file.hash" => await files.HashAsync(args, cancellationToken),
+                "desktop.info" => desktop.Info(),
+                "display.list" => desktop.ListDisplays(),
+                "window.list" => desktop.ListWindows(args),
+                "window.foreground" => desktop.ForegroundWindow(),
+                "window.activate" => desktop.ActivateWindow(args),
+                "window.move" => desktop.MoveWindow(args),
+                "window.show" => desktop.ShowWindow(args),
+                "pointer.position" => desktop.PointerPosition(),
+                "pointer.move" => await desktop.MovePointerAsync(args, cancellationToken),
+                "pointer.click" => await desktop.ClickPointerAsync(args, cancellationToken),
+                "pointer.scroll" => await desktop.ScrollPointerAsync(args, cancellationToken),
+                "keyboard.type" => await desktop.TypeTextAsync(args, cancellationToken),
+                "keyboard.key" => await desktop.SendKeysAsync(args, cancellationToken),
+                "clipboard.read" => desktop.ReadClipboard(),
+                "clipboard.write" => await desktop.WriteClipboardAsync(args, cancellationToken),
                 "session.info" => await SessionInfoAsync(args, cancellationToken),
                 _ => throw new NotSupportedException($"Unsupported operation '{op}'. Call capabilities for the current operation list."),
             };
@@ -88,7 +104,7 @@ public sealed class OperationDispatcher(
     {
         if (!runtime.IsService) return false;
         var reader = new ArgReader(args);
-        if (op == "session.info") return true;
+        if (op == "session.info" || IsDesktopOperation(op)) return true;
         if (op == "wsl.run")
             return !string.Equals(reader.String("context", "user"), "system", StringComparison.OrdinalIgnoreCase);
         if (op is "run" or "process.start" or "terminal.open")
@@ -107,6 +123,14 @@ public sealed class OperationDispatcher(
             return (reader.String("handle") ?? string.Empty).StartsWith("proc_u_", StringComparison.Ordinal);
         return false;
     }
+
+    private static bool IsDesktopOperation(string op) =>
+        op.StartsWith("desktop.", StringComparison.Ordinal)
+        || op.StartsWith("display.", StringComparison.Ordinal)
+        || op.StartsWith("window.", StringComparison.Ordinal)
+        || op.StartsWith("pointer.", StringComparison.Ordinal)
+        || op.StartsWith("keyboard.", StringComparison.Ordinal)
+        || op.StartsWith("clipboard.", StringComparison.Ordinal);
 
     private async Task<EyeEnvelope> ForwardToSessionAsync(
         string op,

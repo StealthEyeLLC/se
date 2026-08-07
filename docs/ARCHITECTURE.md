@@ -66,11 +66,13 @@ Bounded commands use redirected native streams. Long commands and terminals pers
 
 ## Desktop architecture
 
-Desktop automation uses, in order:
+The current desktop baseline runs only in the elevated owner-session process. It uses direct Win32 APIs for monitor/window state, foreground activation, geometry, show state, pointer input, keyboard input, and Unicode clipboard access. The LocalSystem service routes all desktop vocabulary through the named pipe instead of operating against session 0.
+
+Desktop expansion uses, in order:
 
 1. Windows UI Automation for semantic controls;
-2. DXGI Desktop Duplication / Windows Graphics Capture for visual state;
-3. native input APIs for raw pointer and keyboard fallback.
+2. Windows Graphics Capture or DXGI Desktop Duplication for visual state;
+3. the implemented native input APIs for raw pointer and keyboard fallback.
 
 ## Browser architecture
 

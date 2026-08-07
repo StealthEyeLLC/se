@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using StealthEye.Configuration;
 using StealthEye.Operations;
+using StealthEye.Windows;
 
 namespace StealthEye.Runtime;
 
@@ -17,6 +18,7 @@ public static class ServiceRegistration
         services.AddSingleton<FileOperations>();
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<ProcessRegistry>();
+        services.AddSingleton<DesktopOperations>();
         services.AddSingleton<OperationDispatcher>();
         return services;
     }

@@ -28,9 +28,22 @@ Install the pinned official tunnel client, register the custom ChatGPT app, expo
 
 Remove HEC/VPS from the normal path only after direct phone access works.
 
-## 7. Desktop and browser
+## 7. Desktop and browser — native desktop baseline implemented
 
-UI Automation, DXGI/Windows Graphics Capture, native input, persistent browser profiles, Playwright, CDP, downloads/uploads.
+Implemented:
+
+- monitor and virtual-screen enumeration;
+- top-level window inspection, activation, movement, sizing, and show-state control;
+- pointer movement, clicks, and scrolling;
+- Unicode text input and named key/chord input;
+- Unicode clipboard read/write;
+- mandatory service-to-owner-session routing for desktop operations.
+
+Still required:
+
+- screenshots through Windows Graphics Capture or DXGI Desktop Duplication;
+- UI Automation for semantic controls;
+- persistent browser profiles, Playwright, CDP, downloads, and uploads.
 
 ## 8. Unity and Unreal
 
