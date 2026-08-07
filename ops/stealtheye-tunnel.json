@@ -1,0 +1,15 @@
+{
+  "id": "tunnel_6a755c339350819188664006f033207d",
+  "name": "StealthEye",
+  "description": "Direct laptop-native StealthEye MCP tunnel",
+  "organization_ids": [
+    "org-mqzR4VD55B3M0WD4x6viaxMq"
+  ],
+  "workspace_ids": [
+    "c113e248-9982-4c52-898f-84bc58a36ca8"
+  ],
+  "tenant_ids": null,
+  "status": null,
+  "created_at": null,
+  "updated_at": null
+}
