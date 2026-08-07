@@ -1,0 +1,140 @@
+name: Bootstrap StealthEye Tunnel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bootstrap-stealtheye-tunnel.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-stealtheye-tunnel
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_TUNNEL_ID: tunnel_6a72b49594188191b8d5afbd59666b6b
+      TUNNEL_NAME: StealthEye
+      TUNNEL_DESCRIPTION: Direct laptop-native StealthEye MCP tunnel
+    steps:
+      - name: Checkout StealthEye
+        uses: actions/checkout@v4
+
+      - name: Checkout official OpenAI tunnel-client
+        uses: actions/checkout@v4
+        with:
+          repository: openai/tunnel-client
+          path: .tmp/tunnel-client-src
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: .tmp/tunnel-client-src/go.mod
+          cache: false
+
+      - name: Build official tunnel-client
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .tmp/tunnel-client-src
+          go build -o "$GITHUB_WORKSPACE/.tmp/tunnel-client" ./cmd/client
+          "$GITHUB_WORKSPACE/.tmp/tunnel-client" --version
+
+      - name: Create or recover dedicated StealthEye tunnel
+        shell: bash
+        env:
+          OPENAI_ADMIN_KEY: ${{ secrets.OAIADMIN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${OPENAI_ADMIN_KEY:-}" ]]; then
+            echo "::error::Repository Actions secret OAIADMIN is missing or empty"
+            exit 1
+          fi
+
+          client="$GITHUB_WORKSPACE/.tmp/tunnel-client"
+          scratch="$RUNNER_TEMP/stealtheye-tunnel"
+          mkdir -p "$scratch" ops
+
+          # Read the already-published SEZU tunnel only to recover the live
+          # OpenAI organization/workspace scope. Never update or delete it.
+          "$client" admin tunnels get "$SOURCE_TUNNEL_ID" --json > "$scratch/source.json"
+
+          mapfile -t org_ids < <(jq -r '.organization_ids[]? // empty' "$scratch/source.json")
+          mapfile -t workspace_ids < <(jq -r '.workspace_ids[]? // empty' "$scratch/source.json")
+
+          if (( ${#org_ids[@]} == 0 && ${#workspace_ids[@]} == 0 )); then
+            echo "::error::Source tunnel returned no organization_ids or workspace_ids"
+            exit 1
+          fi
+
+          tunnel_id=""
+
+          # Prefer a previously recorded StealthEye id when this workflow is retried.
+          if [[ -f ops/stealtheye-tunnel.json ]]; then
+            tunnel_id="$(jq -r '.id // empty' ops/stealtheye-tunnel.json)"
+            if [[ -n "$tunnel_id" ]]; then
+              if ! "$client" admin tunnels get "$tunnel_id" --json > "$scratch/target.json"; then
+                tunnel_id=""
+              fi
+            fi
+          fi
+
+          # If no recorded id exists, search the live scope by exact name so a
+          # retry after a partial run does not create a duplicate tunnel.
+          if [[ -z "$tunnel_id" ]]; then
+            if (( ${#workspace_ids[@]} > 0 )); then
+              "$client" admin tunnels list --workspace-id "${workspace_ids[0]}" --json > "$scratch/list.json"
+            else
+              "$client" admin tunnels list --organization-id "${org_ids[0]}" --json > "$scratch/list.json"
+            fi
+
+            tunnel_id="$(jq -r --arg n "$TUNNEL_NAME" '[.. | objects | select(.name? == $n and (.id? | type == "string")) | .id] | first // empty' "$scratch/list.json")"
+            if [[ -n "$tunnel_id" ]]; then
+              "$client" admin tunnels get "$tunnel_id" --json > "$scratch/target.json"
+            fi
+          fi
+
+          if [[ -z "$tunnel_id" ]]; then
+            args=(admin tunnels create --name "$TUNNEL_NAME" --description "$TUNNEL_DESCRIPTION")
+            for id in "${org_ids[@]}"; do
+              args+=(--organization-id "$id")
+            done
+            for id in "${workspace_ids[@]}"; do
+              args+=(--workspace-id "$id")
+            done
+            args+=(--json)
+
+            "$client" "${args[@]}" > "$scratch/create.json"
+            tunnel_id="$(jq -r '.. | objects | .id? // empty' "$scratch/create.json" | grep '^tunnel_' | head -n 1)"
+            if [[ -z "$tunnel_id" ]]; then
+              echo "::error::Tunnel create succeeded without a parseable tunnel id"
+              exit 1
+            fi
+            "$client" admin tunnels get "$tunnel_id" --json > "$scratch/target.json"
+          fi
+
+          # Persist only non-secret tunnel metadata. The admin key never leaves
+          # GitHub Actions secret storage and is never used by the runtime daemon.
+          jq '{id, name, description, organization_ids, workspace_ids, tenant_ids, status, created_at, updated_at}' \
+            "$scratch/target.json" > ops/stealtheye-tunnel.json.tmp
+          mv ops/stealtheye-tunnel.json.tmp ops/stealtheye-tunnel.json
+
+          echo "StealthEye tunnel id: $tunnel_id"
+
+      - name: Record non-secret tunnel identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/stealtheye-tunnel.json
+          if git diff --cached --quiet; then
+            echo 'Tunnel identity already recorded; no commit needed.'
+            exit 0
+          fi
+          git commit -m 'Record StealthEye tunnel identity'
+          git push
