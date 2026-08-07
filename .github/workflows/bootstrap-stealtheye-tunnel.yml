@@ -20,29 +20,10 @@ jobs:
       SOURCE_TUNNEL_ID: tunnel_6a72b49594188191b8d5afbd59666b6b
       TUNNEL_NAME: StealthEye
       TUNNEL_DESCRIPTION: Direct laptop-native StealthEye MCP tunnel
+      TUNNEL_API_BASE: https://api.openai.com
     steps:
       - name: Checkout StealthEye
         uses: actions/checkout@v4
-
-      - name: Checkout official OpenAI tunnel-client
-        uses: actions/checkout@v4
-        with:
-          repository: openai/tunnel-client
-          path: .tmp/tunnel-client-src
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: .tmp/tunnel-client-src/go.mod
-          cache: false
-
-      - name: Build official tunnel-client
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd .tmp/tunnel-client-src
-          go build -o "$GITHUB_WORKSPACE/.tmp/tunnel-client" ./cmd/client
-          "$GITHUB_WORKSPACE/.tmp/tunnel-client" --version
 
       - name: Create or recover dedicated StealthEye tunnel
         shell: bash
@@ -55,70 +36,89 @@ jobs:
             exit 1
           fi
 
-          client="$GITHUB_WORKSPACE/.tmp/tunnel-client"
           scratch="$RUNNER_TEMP/stealtheye-tunnel"
           mkdir -p "$scratch" ops
 
+          api_get() {
+            curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer $OPENAI_ADMIN_KEY" \
+              -H 'Content-Type: application/json' \
+              "$@"
+          }
+
           # Read the already-published SEZU tunnel only to recover the live
-          # OpenAI organization/workspace scope. Never update or delete it.
-          "$client" admin tunnels get "$SOURCE_TUNNEL_ID" --json > "$scratch/source.json"
+          # organization/workspace scope. It is never updated or deleted.
+          api_get "$TUNNEL_API_BASE/v1/tunnels/$SOURCE_TUNNEL_ID" > "$scratch/source.json"
 
-          mapfile -t org_ids < <(jq -r '.organization_ids[]? // empty' "$scratch/source.json")
-          mapfile -t workspace_ids < <(jq -r '.workspace_ids[]? // empty' "$scratch/source.json")
-
-          if (( ${#org_ids[@]} == 0 && ${#workspace_ids[@]} == 0 )); then
+          org_count="$(jq '(.organization_ids // []) | length' "$scratch/source.json")"
+          workspace_count="$(jq '(.workspace_ids // []) | length' "$scratch/source.json")"
+          if [[ "$org_count" == "0" && "$workspace_count" == "0" ]]; then
             echo "::error::Source tunnel returned no organization_ids or workspace_ids"
             exit 1
           fi
 
           tunnel_id=""
 
-          # Prefer a previously recorded StealthEye id when this workflow is retried.
+          # Prefer a previously recorded StealthEye id on retries.
           if [[ -f ops/stealtheye-tunnel.json ]]; then
             tunnel_id="$(jq -r '.id // empty' ops/stealtheye-tunnel.json)"
             if [[ -n "$tunnel_id" ]]; then
-              if ! "$client" admin tunnels get "$tunnel_id" --json > "$scratch/target.json"; then
+              if ! api_get "$TUNNEL_API_BASE/v1/tunnels/$tunnel_id" > "$scratch/target.json"; then
                 tunnel_id=""
               fi
             fi
           fi
 
-          # If no recorded id exists, search the live scope by exact name so a
-          # retry after a partial run does not create a duplicate tunnel.
+          # Otherwise find an exact-name tunnel in the same live scope. This
+          # protects against duplication if a prior run created the tunnel but
+          # failed before recording its metadata.
           if [[ -z "$tunnel_id" ]]; then
-            if (( ${#workspace_ids[@]} > 0 )); then
-              "$client" admin tunnels list --workspace-id "${workspace_ids[0]}" --json > "$scratch/list.json"
+            if [[ "$workspace_count" != "0" ]]; then
+              scope_id="$(jq -r '.workspace_ids[0]' "$scratch/source.json")"
+              api_get --get --data-urlencode "workspace_id=$scope_id" \
+                "$TUNNEL_API_BASE/v1/tunnels" > "$scratch/list.json"
             else
-              "$client" admin tunnels list --organization-id "${org_ids[0]}" --json > "$scratch/list.json"
+              scope_id="$(jq -r '.organization_ids[0]' "$scratch/source.json")"
+              api_get --get --data-urlencode "organization_id=$scope_id" \
+                "$TUNNEL_API_BASE/v1/tunnels" > "$scratch/list.json"
             fi
 
             tunnel_id="$(jq -r --arg n "$TUNNEL_NAME" '[.. | objects | select(.name? == $n and (.id? | type == "string")) | .id] | first // empty' "$scratch/list.json")"
             if [[ -n "$tunnel_id" ]]; then
-              "$client" admin tunnels get "$tunnel_id" --json > "$scratch/target.json"
+              api_get "$TUNNEL_API_BASE/v1/tunnels/$tunnel_id" > "$scratch/target.json"
             fi
           fi
 
           if [[ -z "$tunnel_id" ]]; then
-            args=(admin tunnels create --name "$TUNNEL_NAME" --description "$TUNNEL_DESCRIPTION")
-            for id in "${org_ids[@]}"; do
-              args+=(--organization-id "$id")
-            done
-            for id in "${workspace_ids[@]}"; do
-              args+=(--workspace-id "$id")
-            done
-            args+=(--json)
+            org_json="$(jq -c '.organization_ids // []' "$scratch/source.json")"
+            workspace_json="$(jq -c '.workspace_ids // []' "$scratch/source.json")"
+            jq -n \
+              --arg name "$TUNNEL_NAME" \
+              --arg description "$TUNNEL_DESCRIPTION" \
+              --argjson org "$org_json" \
+              --argjson workspace "$workspace_json" \
+              '{name:$name, description:$description}
+               + (if ($org|length) > 0 then {organization_ids:$org} else {} end)
+               + (if ($workspace|length) > 0 then {workspace_ids:$workspace} else {} end)' \
+              > "$scratch/create-body.json"
 
-            "$client" "${args[@]}" > "$scratch/create.json"
-            tunnel_id="$(jq -r '.. | objects | .id? // empty' "$scratch/create.json" | grep '^tunnel_' | head -n 1)"
-            if [[ -z "$tunnel_id" ]]; then
-              echo "::error::Tunnel create succeeded without a parseable tunnel id"
+            curl --fail-with-body --silent --show-error \
+              -X POST "$TUNNEL_API_BASE/v1/tunnels" \
+              -H "Authorization: Bearer $OPENAI_ADMIN_KEY" \
+              -H 'Content-Type: application/json' \
+              --data-binary "@$scratch/create-body.json" \
+              > "$scratch/create.json"
+
+            tunnel_id="$(jq -r '.id // empty' "$scratch/create.json")"
+            if [[ ! "$tunnel_id" =~ ^tunnel_[0-9a-f]{32}$ ]]; then
+              echo "::error::Tunnel create returned no valid tunnel id"
               exit 1
             fi
-            "$client" admin tunnels get "$tunnel_id" --json > "$scratch/target.json"
+            api_get "$TUNNEL_API_BASE/v1/tunnels/$tunnel_id" > "$scratch/target.json"
           fi
 
-          # Persist only non-secret tunnel metadata. The admin key never leaves
-          # GitHub Actions secret storage and is never used by the runtime daemon.
+          # Persist only non-secret metadata. The admin key remains exclusively
+          # in Actions secret storage and is never used by the runtime daemon.
           jq '{id, name, description, organization_ids, workspace_ids, tenant_ids, status, created_at, updated_at}' \
             "$scratch/target.json" > ops/stealtheye-tunnel.json.tmp
           mv ops/stealtheye-tunnel.json.tmp ops/stealtheye-tunnel.json
